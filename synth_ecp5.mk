@@ -5,6 +5,7 @@ TRELLIS?=/usr/share/trellis
 CHIPNAME?=chip
 DEVICE?=um5g-85k
 PACKAGE?=CABGA381
+DEVICE_IDCODE?=0x41113043
 
 DEFINES+=FPGA FPGA_ECP5
 
@@ -29,7 +30,7 @@ romfiles::
 synth: romfiles $(CHIPNAME).json
 dump: romfiles
 pnr: synth $(CHIPNAME).config
-bit: pnr $(CHIPNAME).bin $(CHIPNAME).svf
+bit: pnr $(CHIPNAME).bit $(CHIPNAME).svf
 
 SRCS=$(shell $(SCRIPTS)/listfiles --relative -f flat $(DOTF))
 INCDIRS=$(shell $(SCRIPTS)/listfiles --relative -f flati $(DOTF))
@@ -50,15 +51,15 @@ $(CHIPNAME).config: $(CHIPNAME).json $(CHIPNAME).lpf
 	$(NEXTPNR) -r --placer sa --$(DEVICE) --package $(PACKAGE) --lpf $(CHIPNAME).lpf --json $(CHIPNAME).json --textcfg $@ $(PNR_OPT) --quiet --log pnr.log
 	@grep "Info: Max frequency for clock " pnr.log | tail -n 1
 
-$(CHIPNAME).bin: $(CHIPNAME).config
+$(CHIPNAME).bit: $(CHIPNAME).config
 	@echo ">>> Generate Bitstream"
 	@echo
-	ecppack --svf $(CHIPNAME).svf $< $@
+	ecppack --svf $(CHIPNAME).svf --idcode $(DEVICE_IDCODE) $< $@
 
-$(CHIPNAME).svf: $(CHIPNAME).bin
+$(CHIPNAME).svf: $(CHIPNAME).bit
 
 clean::
-	rm -f $(CHIPNAME).json $(CHIPNAME).asc $(CHIPNAME).bin $(CHIPNAME)_synth.v
+	rm -f $(CHIPNAME).json $(CHIPNAME).asc $(CHIPNAME).bit $(CHIPNAME)_synth.v
 	rm -f synth.log pnr.log
 
 # Code for trying n different pnr seeds and reporting results
