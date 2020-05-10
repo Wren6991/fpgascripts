@@ -54,7 +54,7 @@ $(CHIPNAME).config: $(CHIPNAME).json $(CHIPNAME).lpf
 $(CHIPNAME).bit: $(CHIPNAME).config
 	@echo ">>> Generate Bitstream"
 	@echo
-	ecppack --svf $(CHIPNAME).svf --idcode $(DEVICE_IDCODE) $< $@
+	ecppack --compress --svf $(CHIPNAME).svf --idcode $(DEVICE_IDCODE) $< $@
 
 $(CHIPNAME).svf: $(CHIPNAME).bit
 
