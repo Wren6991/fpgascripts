@@ -2,6 +2,11 @@
 
 from PIL import Image
 import argparse
+import os
+import struct
+import sys
+
+FORMATS = ["argb1555", "rgab5515", "bgar5515", "rgb565", "argb1232", "ragb2132", "rgb332", "r1", "p8", "p4", "p2", "p1"]
 
 def bytes_from_bitstream_le(bitstream):
 	accum = 0
@@ -19,18 +24,69 @@ def bytes_from_bitstream_le(bitstream):
 			accum = accum >> 8
 			accum_size -= 8
 
-def format_pixel(format, src_has_transparency, pixel):
-	assert(format in ["argb1555", "argb1232", "p8", "p4", "p2", "p1"])
-	if format == "argb1555":
-		return (16, ((pixel[2] & 0xf8) >> 3) | \
-			((pixel[1] & 0xf8) << 2) | \
-			((pixel[0] & 0xf8) << 7) | \
-			(((pixel[3] & 0x80) << 8) if len(pixel) > 3 and src_has_transparency else 0x8000))
-	elif format == "argb1232":
-		return (8, ((pixel[2] & 0xc0) >> 6) |\
-			((pixel[1] & 0xe0) >> 3) | \
-			((pixel[0] & 0xc0) >> 1) | \
-			(pixel[3] & 0x80 if len(pixel) > 3 and src_has_transparency else 0x80))
+class BinHeader:
+	def __init__(self, filename, arrayname=None):
+		if arrayname is None:
+			arrayname = filename.split(".")[0]
+		self.f = open(filename, "w")
+		self.out_count = 0
+		self.f.write("static char __attribute__((aligned(4))) {}[] = {{\n\t".format(arrayname))
+
+	def write(self, bs):
+		for b in bs:
+			self.f.write("0x{:02x}".format(b) + (",\n\t" if self.out_count % 16 == 15 else ", "))
+			self.out_count += 1
+
+	def close(self):
+		self.f.write("\n};\n")
+		self.f.close()
+
+# Fixed dither -- note every number 0...15 appears once (thanks Graham)
+dither_pattern_4x4 = [
+	[0  , 8  , 2  , 10],
+	[12 , 4  , 14 , 6 ],
+	[3  , 11 , 1  , 9 ],
+	[15 , 7  , 13 , 5 ],
+]
+
+def format_channel(data, msb, lsb, dither=False, dithercoord=None):
+	# Assume data to be 8 bits
+	out_width = msb - lsb + 1
+	assert(out_width <= 8)
+	if dither:
+		ditherval = dither_pattern_4x4[dithercoord[1] % 4][dithercoord[0] % 4]
+		shamt = (8 - out_width) - 4
+		if shamt >= 0:
+			data += ditherval << shamt
+		else:
+			data += ditherval >> -shamt
+		data = min(data, 0xff)
+	return (data >> (8 - out_width)) << lsb
+
+def format_rgb_pixel(pix, fmt, dither=False, dithercoord=None):
+	accum = 0
+	for p, f in zip(pix, fmt):
+		accum |= format_channel(p, f[0], f[1], dither, dithercoord)
+	if len(pix) == len(fmt) - 1:
+		accum |= format_channel(0xff, fmt[-1][0], fmt[-1][1])
+	return accum
+
+# TODO would be kind of nice to generate these based on format string but I don't need that yet
+rgb_formats = {
+	"argb1555": (16, ((14, 10), (9, 5), (4, 0), (15, 15))),
+	"rgab5515": (16, ((15, 11), (10, 6), (4, 0), (5, 5))),
+	"bgar5515": (16, ((4, 0), (10, 6), (15, 11), (5, 5))),
+	"rgb565"  : (16, ((15, 11), (10, 5), (4, 0))),
+	"argb1232": (8, ((6, 5), (4, 2), (1, 0), (7, 7))),
+	"ragb2132": (8, ((7, 6), (4, 2), (1, 0), (5, 5))),
+	"rgb332"  : (8, ((7, 5), (4, 2), (1, 0))),
+	"r1"      : (1, ((0, 0), (-1, 0), (-1, 0)))
+}
+
+def format_pixel(format, src_has_transparency, pixel, dither=False, dithercoord=None):
+	assert(format in FORMATS)
+	if format in rgb_formats:
+		return (rgb_formats[format][0], format_rgb_pixel(pixel, rgb_formats[format][1], dither, dithercoord))
 	elif format in ["p8", "p4", "p2", "p1"]:
 		size = int(format[1:])
 		return (size, (pixel + src_has_transparency) & ((1 << size) - 1))
@@ -43,15 +99,29 @@ if __name__ == "__main__":
 	parser.add_argument("output", help="Output file name")
 	parser.add_argument("--tilesize", "-t", help="Tile size (pixels), default 8",
 		default="8", choices=[str(2 ** i) for i in range(3, 11)])
+	parser.add_argument("--single", "-s", action="store_true",
+		help="The input consists of a single image of arbitrary width/height, rather than a tileset")
 	parser.add_argument("--format", "-f", help="Output pixel format, default argb1555",
-		default="argb1555", choices=["argb1555", "argb1232", "p8", "p4", "p2", "p1"])
+		default="argb1555", choices=FORMATS)
+	parser.add_argument("--dither", "-d", action="store_true",
+		help="Apply a simple fixed dither pattern when packing RGB files")
+	parser.add_argument("--metadata", "-m", action="store_true",
+		help="Write out opacity metadata at end of file for faster alpha blit (must be used with --single)")
 	args = parser.parse_args()
 	img = Image.open(args.input)
-	ofile = open(args.output, "wb")
-	tilesize = int(args.tilesize)
+	if args.single:
+		tsize_x = img.width
+		tsize_y = img.height
+	else:
+		tsize_x = int(args.tilesize)
+		tsize_y = tsize_x
+	if args.metadata and not args.single:
+		sys.exit("--metadata must be used with --single")
 
 	format_is_paletted = args.format.startswith("p")
 	image_is_transparent = img.mode == "RGBA" and img.getextrema()[3][0] < 255
+	if args.metadata and not image_is_transparent:
+		sys.exit("Can't write opacity metadata for a non-transparent image")
 
 	if format_is_paletted:
 		ncolours_max = 1 << int(args.format[1:])
@@ -75,9 +145,28 @@ if __name__ == "__main__":
 				pfile.write(bytes(2 * (ncolours_max - ncolours_actual)))
 		img = pimg
 
-	for y in range(0, img.height - (tilesize - 1), tilesize):
-		for x in range(0, img.width - (tilesize - 1), tilesize):
-			tile = img.crop((x, y, x + tilesize, y + tilesize))
+	if args.output.endswith(".h"):
+		ofile = BinHeader(args.output, arrayname = os.path.basename(args.input).split(".")[0])
+	else:
+		ofile = open(args.output, "wb")
+
+	for y in range(0, img.height - (tsize_y - 1), tsize_y):
+		for x in range(0, img.width - (tsize_x - 1), tsize_x):
+			tile = img.crop((x, y, x + tsize_x, y + tsize_y))
 			ofile.write(bytes(bytes_from_bitstream_le(
-				format_pixel(args.format, image_is_transparent, tile.getpixel((i, j))) for j in range(tilesize) for i in range(tilesize)
+				format_pixel(args.format, image_is_transparent, tile.getpixel((i, j)), args.dither, dithercoord=(i, j)) for j in range(tsize_y) for i in range(tsize_x)
 			)))
+	if args.metadata:
+		assert(tsize_x * tsize_y % 4 == 0)
+		for y in range(0, tsize_y):
+			opacity = list(img.getpixel((x, y))[3] >= 128 for x in range(tsize_x))
+			try:
+				first_transparent = opacity.index(True)
+				last_transparent = tsize_x - 1 - list(reversed(opacity)).index(True)
+				continuous_span = all(opacity[first_transparent:last_transparent + 1])
+				ofile.write(struct.pack("<L", (last_transparent & 0xffff) | ((first_transparent & 0x7fff) << 16) | ((continuous_span & 1) << 31)))
+			except ValueError:
+				# Completely transparent row
+				ofile.write(struct.pack("<L", 0))
+
+	ofile.close()
