@@ -29,7 +29,7 @@ class RegBlock:
 
 	@staticmethod
 	def load(file):
-		y = yaml.load(file.read())
+		y = yaml.load(file.read(), Loader=yaml.FullLoader)
 		if "bus" not in y:
 			sys.exit("Must specify bus type with \"bus: x\"")
 		if "data" not in y:
@@ -52,7 +52,7 @@ class RegBlock:
 			yaml_lines = []
 			emit = lambda x: yaml_lines.append(str(x))
 			exec(rspec["generate"], {"_": emit, **param_dict}, dict())
-			newregs = yaml.load("\n".join(yaml_lines))
+			newregs = yaml.load("\n".join(yaml_lines), Loader=yaml.FullLoader)
 			if newregs is not None:
 				reglist.extend(newregs)
 		# Then process the expanded reglist

@@ -232,7 +232,7 @@ if __name__ == "__main__":
 	reset_shell(port)
 	print("")
 
-	if args.execute or args.write:
+	if args.execute:
 		print("Loading...")
 		load_mem(port, open(args.file, "rb").read())
 		print("Load ok, running...")
