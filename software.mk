@@ -13,7 +13,7 @@ MARCH?=rv32ic
 LDSCRIPT?=memmap.ld
 override CCFLAGS+=-c -march=$(MARCH) $(addprefix -I ,$(INCDIRS))
 override CCFLAGS+=-Wall -Wextra -Wno-parentheses
-override LDFLAGS+=-T $(LDSCRIPT)
+override LDFLAGS+=-march=$(MARCH) -T $(LDSCRIPT)
 
 # Override to -D to get all sections
 DISASSEMBLE?=-d
