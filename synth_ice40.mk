@@ -51,7 +51,7 @@ $(CHIPNAME).asc: $(CHIPNAME).json $(CHIPNAME).pcf
 $(CHIPNAME).bin: $(CHIPNAME).asc
 	@echo ">>> Generate Bitstream"
 	@echo
-	icepack $(CHIPNAME).asc $(CHIPNAME).bin
+	icepack -s $(CHIPNAME).asc $(CHIPNAME).bin
 
 clean::
 	rm -f $(CHIPNAME).json $(CHIPNAME).asc $(CHIPNAME).bin $(CHIPNAME)_synth.v
