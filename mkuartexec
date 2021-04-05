@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+
+# Prepend a length and CRC32 checksum to a binary file so that it can be sent
+# to the DOOMSoC UART bootloader. Both values are unsigned 32-bit
+# little-endian. CRC32 is calculated with standard parameters (input and
+# output reflected, seed all-ones, final XOR all-ones).
+
+import argparse
+import binascii
+import struct
+
+parser = argparse.ArgumentParser()
+parser.add_argument("ifile")
+parser.add_argument("ofile")
+args = parser.parse_args()
+
+data = open(args.ifile, "rb").read()
+
+with open(args.ofile, "wb") as ofile:
+	ofile.write(struct.pack("<L", len(data)))
+	ofile.write(struct.pack("<L", binascii.crc32(data)))
+	ofile.write(data)
+

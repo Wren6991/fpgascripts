@@ -30,7 +30,7 @@ all: compile
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(APPNAME).elf: $(OBJS)
-	$(LD) $(LDFLAGS) $(OBJS) -o $(APPNAME).elf
+	$(LD) $(LDFLAGS) $(OBJS) $(addprefix -l,$(LIBS)) -o $(APPNAME).elf
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary	 $< $@
@@ -49,7 +49,7 @@ $(APPNAME).dis: $(APPNAME).elf
 	$(OBJDUMP) $(DISASSEMBLE) $(APPNAME).elf >> $(APPNAME).dis
 
 
-compile:: $(APPNAME)32.hex $(APPNAME).dis
+compile:: $(APPNAME)32.hex $(APPNAME).dis $(APPNAME).bin
 
 clean::
 	rm -f $(APPNAME).elf $(APPNAME)32.hex $(APPNAME)8.hex $(APPNAME).dis $(APPNAME).bin $(OBJS)
