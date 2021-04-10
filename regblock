@@ -15,13 +15,14 @@ from math import log2, ceil
 class RegBlock:
 	bus_types = ["apb"]
 	field_properties = ["name", "b", "access", "info", "rst", "concat"]
-	def __init__(self, name, w_data, w_addr, bus):
+	def __init__(self, name, w_data, w_addr, bus, info):
 		self.name = name
 		self.w_data = w_data
 		self.w_addr = w_addr
 		if bus not in self.bus_types:
 			raise Exception("Unknown bus type: {}".format(bus))
 		self.bus = bus
+		self.info = info
 		self.regs = []
 
 	def add(self, reg):
@@ -38,7 +39,7 @@ class RegBlock:
 			sys.exit("Must specify address width with \"addr: x\"")
 		if "name" not in y:
 			sys.exit("Must specify regblock name with \"name: x\"")
-		rb = RegBlock(y["name"], y["data"], y["addr"], y["bus"])
+		rb = RegBlock(y["name"], y["data"], y["addr"], y["bus"], y["info"] if "info" in y else None)
 		param_dict = {"W_DATA": y["data"]}
 		if ("params" in y):
 			param_dict = {**param_dict, **y["params"]}
@@ -100,7 +101,7 @@ class Register:
 			raise Exception("{} already has a field called \"{}\"".format(self.name, field.name))
 		for i in range(field.lsb, field.msb + 1):
 			if self.occupancy[i] is not None:
-				raise Exception("Field {} overlaps {} in register {}".format(field.name, occupancy[i], self.name))
+				raise Exception("Field {} overlaps {} in register {}".format(field.name, self.occupancy[i], self.name))
 			self.occupancy[i] = field.name
 		self.fields[field.name] = field
 		field.parent = self
@@ -118,7 +119,7 @@ class Field:
 		if lsb > msb:
 			raise Exception("Field width must be >= 0 in field {}".format(name))
 		if access not in self.access_types:
-			raise Exception("Unknown access type: {}. Recognised types: {}".format(access, ", ".join(access_types)))
+			raise Exception("Unknown access type: {}. Recognised types: {}".format(access, ", ".join(self.access_types)))
 		if access in ["sc", "w1c"] and msb != lsb:
 			raise Exception("Field width must be 1 for access type '{}'".format(access))
 		self.name = name
@@ -275,6 +276,9 @@ class VerilogWriter(RegBlockVisitor):
 		v.header.append(c_line_comment("{:<20} : {}".format("Bus data width", rb.w_data)))
 		v.header.append(c_line_comment("{:<20} : {}".format("Bus address width", rb.w_addr)))
 		v.header.append("")
+		if rb.info is not None:
+			v.header.append(c_line_comment(rb.info))
+			v.header.append("")
 		v.header.append("module {}_regs (".format(rb.name))
 		v.ports.extend(["input wire clk", "input wire rst_n",])
 		addr_mask = (1 << 2 + ceil(log2(len(rb.regs)))) - 1
@@ -438,6 +442,9 @@ class HeaderWriter(RegBlockVisitor):
 		lines.append(c_line_comment("{:<20} : {}".format("Bus data width", rb.w_data)))
 		lines.append(c_line_comment("{:<20} : {}".format("Bus address width", rb.w_addr)))
 		lines.append("")
+		if rb.info is not None:
+			lines.append(c_line_comment(rb.info))
+			lines.append("")
 		for i, reg in enumerate(rb.regs):
 			lines.append("#define {}_{}_OFFS {}".format(rb.name.upper(), reg.name.upper(), i * 4))
 
