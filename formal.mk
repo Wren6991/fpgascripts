@@ -8,7 +8,9 @@ INCDIRS=$(shell $(SCRIPTS)/listfiles --relative -f flati $(DOTF))
 YOSYS=yosys
 YOSYS_SMTBMC=$(YOSYS)-smtbmc
 
-DEPTH=20
+DEPTH?=20
+COVER_APPEND?=3
+YOSYS_SMT_SOLVER?=z3
 
 DEFINES?=
 
@@ -16,11 +18,11 @@ PREP_CMD =read_verilog -formal
 PREP_CMD+=$(addprefix -I,$(INCDIRS))
 PREP_CMD+=$(addprefix -D,$(DEFINES) )
 PREP_CMD+= $(SRCS);
-PREP_CMD+=prep -top $(TOP) -nordff; async2sync; write_smt2 -wires $(TOP).smt2
+PREP_CMD+=prep -top $(TOP) -nordff; async2sync; dffunmap; write_smt2 -wires $(TOP).smt2
 
-BMC_ARGS=-s z3 --dump-vcd $(TOP).vcd -t $(DEPTH)
+BMC_ARGS=-s $(YOSYS_SMT_SOLVER) --dump-vcd $(TOP).vcd -t $(DEPTH)
 IND_ARGS=-i $(BMC_ARGS)
-
+COV_ARGS = -c $(BMC_ARGS) --append $(COVER_APPEND)
 .PHONY: prove prep bmc induct clean
 
 prove: bmc induct
@@ -34,5 +36,8 @@ bmc: prep
 induct: prep
 	$(YOSYS_SMTBMC) $(IND_ARGS) $(TOP).smt2 | tee induct.log
 
+cover: prep
+	$(YOSYS_SMTBMC) $(COV_ARGS) $(TOP).smt2 | tee cover.log
+
 clean::
-	rm -f $(TOP).vcd $(TOP).smt2 srcs.mk prep.log bmc.log induct.log
+	rm -f $(TOP).vcd $(TOP).smt2 srcs.mk prep.log bmc.log induct.log cover.log
