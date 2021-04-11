@@ -6,7 +6,7 @@ import os
 import struct
 import sys
 
-FORMATS = ["argb1555", "rgab5515", "bgar5515", "rgb565", "argb1232", "ragb2132", "rgb332", "r1", "p8", "p4", "p2", "p1"]
+FORMATS = ["argb1555", "rgab5515", "bgar5515", "rgb565", "argb1232", "ragb2132", "rgb332", "r2", "r1", "p8", "p4", "p2", "p1"]
 
 def bytes_from_bitstream_le(bitstream):
 	accum = 0
@@ -30,7 +30,12 @@ class BinHeader:
 			arrayname = filename.split(".")[0]
 		self.f = open(filename, "w")
 		self.out_count = 0
-		self.f.write("static char __attribute__((aligned(4))) {}[] = {{\n\t".format(arrayname))
+		self.f.write(
+			"#ifndef _IMG_ASSET_SECTION\n" \
+			"#define _IMG_ASSET_SECTION \".data\"\n" \
+			"#endif\n\n" \
+			f"static const char __attribute__((aligned(16), section(_IMG_ASSET_SECTION \".{arrayname}\"))) {arrayname}[] = {{\n\t"
+		)
 
 	def write(self, bs):
 		for b in bs:
@@ -80,7 +85,8 @@ rgb_formats = {
 	"argb1232": (8, ((6, 5), (4, 2), (1, 0), (7, 7))),
 	"ragb2132": (8, ((7, 6), (4, 2), (1, 0), (5, 5))),
 	"rgb332"  : (8, ((7, 5), (4, 2), (1, 0))),
-	"r1"      : (1, ((0, 0), (-1, 0), (-1, 0)))
+	"r2"      : (2, ((1, 0), (-1, 0), (-1, 0))),
+	"r1"      : (1, ((0, 0), (-1, 0), (-1, 0))),
 }
 
 def format_pixel(format, src_has_transparency, pixel, dither=False, dithercoord=None):
@@ -123,6 +129,8 @@ if __name__ == "__main__":
 	if args.metadata and not image_is_transparent:
 		sys.exit("Can't write opacity metadata for a non-transparent image")
 
+	friendly_out_name = os.path.basename(args.input).split(".")[0]
+
 	if format_is_paletted:
 		ncolours_max = 1 << int(args.format[1:])
 		ncolours_actual = min(ncolours_max, len(img.getcolors()))
@@ -135,18 +143,23 @@ if __name__ == "__main__":
 					if not (img.getpixel((x, y))[3] & 0x80):
 						pimg.putpixel((x, y), 255)
 
-		with open(args.output + ".pal", "wb") as pfile:
-			if image_is_transparent:
-				pfile.write(bytes(2))
-			pfile.write(bytes(bytes_from_bitstream_le(
-				format_pixel("argb1555", False, palette[i:i+3]) for i in range(0, ncolours_actual * 3, 3)
-			)))
-			if ncolours_actual < ncolours_max:
-				pfile.write(bytes(2 * (ncolours_max - ncolours_actual)))
+		if args.output.endswith(".h"):
+			pfile = BinHeader(args.output + ".pal", arrayname=friendly_out_name + "_pal")
+		else:
+			pfile = open(args.output + ".pal", "wb")
+		if image_is_transparent:
+			pfile.write(bytes(2))
+		pfile.write(bytes(bytes_from_bitstream_le(
+			format_pixel("argb1555", False, palette[i:i+3]) for i in range(0, ncolours_actual * 3, 3)
+		)))
+		if ncolours_actual < ncolours_max:
+			pfile.write(bytes(2 * (ncolours_max - ncolours_actual)))
+		pfile.close()
+
 		img = pimg
 
 	if args.output.endswith(".h"):
-		ofile = BinHeader(args.output, arrayname = os.path.basename(args.input).split(".")[0])
+		ofile = BinHeader(args.output, arrayname=friendly_out_name)
 	else:
 		ofile = open(args.output, "wb")
 
