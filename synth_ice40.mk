@@ -45,7 +45,7 @@ $(CHIPNAME).json: $(SRCS)
 $(CHIPNAME).asc: $(CHIPNAME).json $(CHIPNAME).pcf
 	@echo ">>> Place and Route"
 	@echo
-	$(NEXTPNR) -r --placer sa --$(DEVICE) --package $(PACKAGE) --pcf $(CHIPNAME).pcf --json $(CHIPNAME).json --asc $(CHIPNAME).asc $(PNR_OPT) --quiet --log pnr.log
+	$(NEXTPNR) -r --$(DEVICE) --package $(PACKAGE) --pcf $(CHIPNAME).pcf --json $(CHIPNAME).json --asc $(CHIPNAME).asc $(PNR_OPT) --quiet --log pnr.log
 	@grep "Info: Max frequency for clock " pnr.log | tail -n 1
 
 $(CHIPNAME).bin: $(CHIPNAME).asc
