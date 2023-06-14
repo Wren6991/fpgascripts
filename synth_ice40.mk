@@ -67,7 +67,7 @@ pnr_sweep: $(addprefix pnr_try,$(PNR_TRY_LIST))
 define make-sweep-target
 pnr_try$1: synth
 	@echo ">>> Starting sweep $1"
-	-$(NEXTPNR) --seed $1 --placer sa --$(DEVICE) --package $(PACKAGE) --pcf $(CHIPNAME).pcf --json $(CHIPNAME).json --asc pnr_try$1.asc $(PNR_OPT) --quiet --log pnr$1.log
+	-$(NEXTPNR) --seed $1 --$(DEVICE) --package $(PACKAGE) --pcf $(CHIPNAME).pcf --json $(CHIPNAME).json --asc pnr_try$1.asc $(PNR_OPT) --quiet --log pnr$1.log
 	@grep "Info: Max frequency for clock " pnr$1.log | tail -n 1
 endef
 
