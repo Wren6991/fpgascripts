@@ -162,7 +162,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("file", nargs="?", help="Filename to read from or dump to.")
 	parser.add_argument("--uart", "-u", help="Path to UART device (e.g. /dev/ttyUSB0)")
-	parser.add_argument("--baud", "-b", help="Baud rate for UART. Default 0.5 Mbaud")
+	parser.add_argument("--baud", "-b", help="Baud rate for UART. Default 1 Mbaud")
 	parser.add_argument("--write", "-w", action="store_true",
 		help="Write to flash (default is read)")
 	parser.add_argument("--verify", "-v", action="store_true",
@@ -183,7 +183,7 @@ if __name__ == "__main__":
 	if args.uart is None:
 		args.uart = sorted(p.device for p in serial.tools.list_ports.comports())[-1]
 	if args.baud is None:
-		args.baud = 3000000
+		args.baud = 1000000
 	if args.verify and not args.write:
 		sys.exit("Verify is only valid for a write operation")
 	if args.run and not args.write:
