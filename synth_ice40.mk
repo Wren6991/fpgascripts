@@ -6,6 +6,7 @@ PACKAGE?=bg121
 
 DEFINES+=FPGA FPGA_ICE40
 
+PRE_SYNTH_CMD?=
 SYNTH_OPT?=
 PNR_OPT?=
 
@@ -13,6 +14,7 @@ SYNTH_CMD=read_verilog $(addprefix -I,$(INCDIRS)) $(addprefix -D,$(DEFINES)) $(S
 ifneq (,$(TOP))
 	SYNTH_CMD+=hierarchy -top $(TOP);
 endif
+SYNTH_CMD+=$(PRE_SYNTH_CMD)
 SYNTH_CMD+=synth_ice40 $(SYNTH_OPT); write_json $(CHIPNAME).json
 
 # Kill implicit rules
