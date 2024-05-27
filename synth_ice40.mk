@@ -31,8 +31,8 @@ dump: romfiles
 pnr: synth $(CHIPNAME).asc
 bit: pnr $(CHIPNAME).bin
 
-SRCS=$(shell $(SCRIPTS)/listfiles --relative -f flat $(DOTF))
-INCDIRS=$(shell $(SCRIPTS)/listfiles --relative -f flati $(DOTF))
+SRCS=$(shell PROJ_ROOT=$(PROJ_ROOT) HDL=$(HDL) $(SCRIPTS)/listfiles --relative -f flat $(DOTF))
+INCDIRS=$(shell PROJ_ROOT=$(PROJ_ROOT) HDL=$(HDL) $(SCRIPTS)/listfiles --relative -f flati $(DOTF))
 
 dump:
 	$(YOSYS) -p "$(SYNTH_CMD); write_verilog $(CHIPNAME)_synth.v"

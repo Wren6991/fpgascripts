@@ -2,8 +2,8 @@
 # DOTF: .f file containing root of file list
 # TOP: name of top-level module
 
-SRCS=$(shell $(SCRIPTS)/listfiles --relative -f flat $(DOTF))
-INCDIRS=$(shell $(SCRIPTS)/listfiles --relative -f flati $(DOTF))
+SRCS=$(shell PROJ_ROOT=$(PROJ_ROOT) HDL=$(HDL) $(SCRIPTS)/listfiles --relative -f flat $(DOTF))
+INCDIRS=$(shell PROJ_ROOT=$(PROJ_ROOT) HDL=$(HDL) $(SCRIPTS)/listfiles --relative -f flati $(DOTF))
 
 YOSYS=yosys
 YOSYS_SMTBMC=$(YOSYS)-smtbmc
