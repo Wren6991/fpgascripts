@@ -18,7 +18,7 @@ PREP_CMD =read_verilog -formal
 PREP_CMD+=$(addprefix -I,$(INCDIRS))
 PREP_CMD+=$(addprefix -D,$(DEFINES) )
 PREP_CMD+= $(SRCS);
-PREP_CMD+=prep -top $(TOP) -nordff; clk2fflogic; async2sync; dffunmap; write_smt2 -wires $(TOP).smt2
+PREP_CMD+=prep -top $(TOP); async2sync; dffunmap; write_smt2 -wires $(TOP).smt2
 
 BMC_ARGS=-s $(YOSYS_SMT_SOLVER) --dump-vcd $(TOP).vcd -t $(DEPTH)
 IND_ARGS=-i $(BMC_ARGS)
