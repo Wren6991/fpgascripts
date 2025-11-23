@@ -323,8 +323,8 @@ class VerilogWriter(RegBlockVisitor):
 
 			v.decls.append(f"// AHB-Lite adapter")
 			v.decls.append(f"wire {width2str(rb.w_data)} wdata = ahbls_hwdata;")
-			v.decls.append(f"reg          wen;")
-			v.decls.append(f"reg          ren;")
+			v.decls.append(f"reg         wen;")
+			v.decls.append(f"reg         ren;")
 			v.decls.append(f"reg  {width2str(rb.w_addr)} addr;")
 			v.decls.append(f"always @ (posedge clk or negedge rst_n) begin")
 			v.decls.append(f"	if (!rst_n) begin")
@@ -487,6 +487,17 @@ class HeaderWriter(RegBlockVisitor):
 			lines.append("")
 		for i, reg in enumerate(rb.regs):
 			lines.append("#define {}_{}_OFFS {}".format(rb.name.upper(), reg.name.upper(), i * 4))
+		lines.append("")
+		lines.append("#ifndef __ASSEMBLER__")
+		lines.append("#include <stdint.h>")
+		lines.append("")
+		lines.append("typedef struct {")
+		for reg in rb.regs:
+			lines.append(f"\tvolatile uint32_t {reg.name};")
+		lines.append(f"}} {rb.name}_hw_t;")
+		lines.append("")
+		lines.append("#endif // !__ASSEMBLER__")
+		lines.append("")
 
 	def post_regblock(self, rb):
 		self.lines.append("")
