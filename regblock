@@ -297,18 +297,21 @@ class VerilogWriter(RegBlockVisitor):
 
 			v.decls.append(f"// APB adapter")
 			v.decls.append(f"wire {width2str(rb.w_data)} wdata = apbs_pwdata;")
-			v.decls.append(f"reg { width2str(rb.w_data)} rdata;")
+			v.decls.append(f"reg  {width2str(rb.w_data)} rdata;")
 			v.decls.append(f"reg         wen;")
 			v.decls.append(f"reg         ren;")
-			v.logic_rst.append("wen <= 1'b0;");
-			v.logic_rst.append("ren <= 1'b0;");
-			v.logic_clk.append("wen <= apbs_psel &&  apbs_pwrite && !apbs_penable;")
-			v.logic_clk.append("ren <= apbs_psel && !apbs_pwrite && !apbs_penable;")
-			v.decls.append(f"wire {width2str(rb.w_addr)} addr = apbs_paddr & {rb.w_addr}'h{addr_mask:x};")
+			v.decls.append(f"reg  {width2str(rb.w_addr)} addr;")
+			v.decls.append(f"")
 			v.decls.append(f"assign apbs_prdata = rdata;")
 			v.decls.append(f"assign apbs_pready = 1'b1;")
 			v.decls.append(f"assign apbs_pslverr = 1'b0;")
 			v.decls.append(f"")
+			v.logic_rst.append(f"wen <= 1'b0;");
+			v.logic_rst.append(f"ren <= 1'b0;");
+			v.logic_rst.append(f"addr <= {rb.w_addr}'d0;")
+			v.logic_clk.append(f"wen <= apbs_psel && !apbs_penable &&  apbs_pwrite;")
+			v.logic_clk.append(f"ren <= apbs_psel && !apbs_penable && !apbs_pwrite;")
+			v.logic_clk.append(f"if (apbs_psel && !apbs_penable) addr <= apbs_paddr & {rb.w_addr}'h{addr_mask:x};")
 
 		elif rb.bus == "ahbl":
 			v.ports.append(f"")
