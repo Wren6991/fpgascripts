@@ -89,7 +89,7 @@ end
 reg [31:0] rom_rdata;
 always @ (*) case (addr)
 {rom_text}
-	default: rom_rdata = 32'h00000000;
+	default: rom_rdata = 32'hxxxxxxxx;
 endcase
 {output_assign_sync if args.outreg else output_assign_comb}
 endmodule
