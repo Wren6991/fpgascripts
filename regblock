@@ -283,6 +283,7 @@ class VerilogWriter(RegBlockVisitor):
 		v.ports.extend(["input wire         clk", "input wire         rst_n",])
 		addr_mask = (1 << 2 + ceil(log2(len(rb.regs)))) - 1
 		addr_mask = addr_mask & (-1 << ceil(log2(rb.w_data / 8)))
+		v.decls.append(f"/* verilator lint_off UNUSEDSIGNAL */")
 		if rb.bus == "apb":
 			v.ports.append(f"")
 			v.ports.append(f"// APB Port")
@@ -385,6 +386,8 @@ class VerilogWriter(RegBlockVisitor):
 				self.v.ports.append("output reg  wstrobe_{}".format(name))
 		for name, max_idx in max_strobe_index.items():
 			self.v.ports.append(f"output reg  {width2str(max_idx + 1)} wstrobe_{name}")
+		self.v.decls.append(f"/* verilator lint_on UNUSEDSIGNAL */")
+
 
 	def pre_register(self, reg):
 		v = self.v
