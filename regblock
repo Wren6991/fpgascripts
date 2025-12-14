@@ -14,7 +14,7 @@ from math import log2, ceil
 
 class RegBlock:
 	bus_types = ["apb", "ahbl"]
-	field_properties = ["name", "b", "access", "info", "rst", "concat"]
+	field_properties = ["name", "b", "access", "info", "rst", "norst", "concat"]
 	def __init__(self, name, w_data, w_addr, bus, info):
 		self.name = name
 		self.w_data = w_data
@@ -69,12 +69,18 @@ class RegBlock:
 				bitrange = fspec["b"]
 				if type(bitrange) is int:
 					bitrange = [bitrange, bitrange]
+				if "norst" in fspec and fspec["norst"]:
+					rstval = None
+				elif "rst" in fspec:
+					rstval = fspec["rst"]
+				else:
+					rstval = 0
 				reg.add(Field(
 					fspec["name"] if "name" in fspec else "",
 					param_resolve(bitrange[0]),
 					param_resolve(bitrange[1]),
 					fspec["access"],
-					fspec["rst"] if "rst" in fspec else 0,
+					rstval,
 					fspec["info"] if "info" in fspec else None,
 					fspec["concat"] if "concat" in fspec else None
 				))
@@ -221,6 +227,7 @@ class Verilog:
 		self.logic_comb = []
 		self.logic_rst = []
 		self.logic_clk = []
+		self.logic_clknorst = []
 
 	def __add__(self, other):
 		new = Verilog()
@@ -255,6 +262,11 @@ class Verilog:
 		strs.append("\tend")
 		strs.append("end")
 		strs.append("")
+		if len(self.logic_clknorst) != 0:
+			strs.append("always @ (posedge clk) begin")
+			strs.extend("\t" + s for s in self.logic_clknorst)
+			strs.append("end")
+			strs.append("")
 		strs.append("endmodule\n")
 		return "\n".join(strs)
 
@@ -443,15 +455,23 @@ class VerilogWriter(RegBlockVisitor):
 		if f.access in ["rw"]:
 			v.decls.append(f"assign {fname}_rdata = {fname}_o;")
 		if f.access in ["rw", "wo"]:
-			v.logic_rst.append(f"{fname}_o <= {f.width}'h{f.resetval:x};")
-			v.logic_clk.append(f"if (__{rname}_wen)")
-			v.logic_clk.append(f"\t{fname}_o <= {fname}_wdata;")
+			if f.resetval is not None:
+				v.logic_rst.append(f"{fname}_o <= {f.width}'h{f.resetval:x};")
+				v.logic_clk.append(f"if (__{rname}_wen)")
+				v.logic_clk.append(f"\t{fname}_o <= {fname}_wdata;")
+			else:
+				v.logic_clknorst.append(f"if (__{rname}_wen)")
+				v.logic_clknorst.append(f"\t{fname}_o <= {fname}_wdata;")
 		if f.access in ["w1c"]:
-			v.logic_rst.append(f"{fname} <= {f.width}'h{f.resetval:x};")
 			v.decls.append(f"reg {f.width_decl} {fname};")
 			v.decls.append(f"assign {fname}_rdata = {fname};")
-			v.logic_clk.append(f"{fname} <= ({fname} & ~({{{f.width}{{__{rname}_wen}}}} & {fname}_wdata)) | {fname}_i;")
 			v.logic_comb.append(f"{fname}_o = {fname};")
+			clkupdate = f"{fname} <= ({fname} & ~({{{f.width}{{__{rname}_wen}}}} & {fname}_wdata)) | {fname}_i;"
+			if f.resetval is not None:
+				v.logic_rst.append(f"{fname} <= {f.width}'h{f.resetval:x};")
+				v.logic_clk.append(clkupdate)
+			else:
+				v.logic_clknorst.append(clkupdate)
 		if f.access in ["sc"]:
 			v.logic_comb.append(f"{fname}_o = {fname}_wdata & {{{f.width}{{__{rname}_wen}}}};")
 		if f.access in ["ro", "wo", "wf", "sc"]:
@@ -528,7 +548,10 @@ class HeaderWriter(RegBlockVisitor):
 		fname = f.fullname.upper()
 		lines = self.lines
 		lines.append(c_line_comment(f"Field: {fname}  Access: {f.access.upper()}"))
-		lines.append(c_line_comment(f"Reset: 0x{f.resetval:x}"))
+		if f.resetval is None:
+			lines.append(c_line_comment("Reset: this field is not reset."))
+		else:
+			lines.append(c_line_comment(f"Reset: 0x{f.resetval:x}"))
 		fname = self.blockname.upper() + "_" + fname
 		if f.info is not None:
 			lines.append(c_line_comment(f.info))
